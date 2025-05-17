@@ -1,0 +1,22 @@
+[project]
+    name = "barometr"
+    version = "0.1.0"
+    description = "Maksim, sosal?"
+    readme = "README.md"
+    requires-python = ">=3.12"
+    dependencies = [
+        "alembic>=1.15.2",
+        "asyncpg>=0.30.0",
+        "bcrypt==4.0.1",
+        "fastapi>=0.115.12",
+        "fastapi-offline>=1.7.3",
+        "passlib[bcrypt]>=1.7.4",
+        "pydantic-settings>=2.9.1",
+        "python-jose>=3.4.0",
+        "python-multipart>=0.0.20",
+        "ruff>=0.11.7",
+        "uvicorn>=0.34.2",
+]
+
+[dependency-groups]
+    dev = ["mypy>=1.15.0"]
