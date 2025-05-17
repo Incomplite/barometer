@@ -1,4 +1,12 @@
+from typing import Any, Sequence
+
+from src.core.dependencies import DatabaseSessionDI
 from src.entities.cocktail.dependencies.repositories import CocktailRepositoryDI
+from src.entities.cocktail.models import (
+    CocktailGalleryModel,
+    ReviewCocktailModel,
+)
+from src.entities.cocktail.repositories import CocktailRepository
 from src.entities.cocktail.schemas import (
     CocktailCreateSchema,
     CocktailResponseSchema,
@@ -10,8 +18,10 @@ class CocktailService:
     def __init__(
         self,
         cocktail_repository: CocktailRepositoryDI,
+        db_session: DatabaseSessionDI,
     ) -> None:
         self._cocktail_repository = cocktail_repository
+        self._repository = CocktailRepository(db_session)
 
     async def get_cocktail_by_id(
         self,
@@ -57,3 +67,28 @@ class CocktailService:
         cocktail_id: int,
     ) -> bool:
         return await self._cocktail_repository.delete_cocktail(cocktail_id)
+
+    async def add_review(
+        self, cocktail_id: int, review_data: dict[str, Any]
+    ) -> ReviewCocktailModel:
+        review = await self._repository.add_review(cocktail_id, review_data)
+        # Update cocktail rating
+        cocktail = await self._repository.get_cocktail_by_id(cocktail_id)
+        reviews = await self._repository.get_reviews(cocktail_id)
+        if reviews:
+            cocktail.rating = sum(r.rating for r in reviews) / len(reviews)
+            await self._repository.update_cocktail(
+                cocktail_id, {"rating": cocktail.rating}
+            )
+        return review
+
+    async def get_reviews(self, cocktail_id: int) -> Sequence[ReviewCocktailModel]:
+        return await self._repository.get_reviews(cocktail_id)
+
+    async def add_gallery_image(
+        self, cocktail_id: int, image_url: str
+    ) -> CocktailGalleryModel:
+        return await self._repository.add_gallery_image(cocktail_id, image_url)
+
+    async def get_gallery(self, cocktail_id: int) -> Sequence[CocktailGalleryModel]:
+        return await self._repository.get_gallery(cocktail_id)

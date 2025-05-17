@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends
 from src.auth.dependencies.auth_module import CurrentUserDI
 from src.auth.role_checks import admin_required
 from src.config import project_config
+from src.entities.bar.dependencies.services import BarServiceDI
+from src.entities.bar.schemas import BarResponseSchema
 from src.entities.user.dependencies.services import UserServiceDI
 from src.entities.user.exceptions import (
     UserAlreadyExistsError,
@@ -122,3 +124,16 @@ async def delete_user(
     return {
         "message": "User deleted successfully",
     }
+
+
+@user_router.get(
+    "/favorites/bars/",
+    response_model=list[BarResponseSchema],
+)
+async def get_user_favorite_bars(
+    bar_service: BarServiceDI,
+    user: CurrentUserDI,
+):
+    return await bar_service.get_user_favorite_bars(
+        user_id=user.id,
+    )

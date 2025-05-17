@@ -20,3 +20,6 @@ class UserResponseSchema(BaseSchema):
     id: int
     username: str
     role: UserRoleEnum
+
+    class Config:
+        from_attributes = True

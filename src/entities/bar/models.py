@@ -17,8 +17,13 @@ class BarModel(Base):
     description: Mapped[str] = mapped_column(nullable=True)
     address: Mapped[str] = mapped_column(String(200))
     phone: Mapped[str] = mapped_column(String(20))
-    rating: Mapped[float] = mapped_column(nullable=True)
+    rating: Mapped[float] = mapped_column(nullable=True, default=0.0)
 
+    favorited_by = relationship(
+        "UserModel",
+        secondary="user_favorite_bar_association",
+        back_populates="favorite_bars",
+    )
     gallery = relationship("BarGalleryModel", back_populates="bar")
     cocktails = relationship("CocktailModel", back_populates="bar")
     reviews = relationship("ReviewBarModel", back_populates="bar")
@@ -45,6 +50,8 @@ class ReviewBarModel(Base, TimestampModelMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     text: Mapped[str] = mapped_column(Text)
     rating: Mapped[float] = mapped_column(nullable=True)
-    bar_id: Mapped[int] = mapped_column(ForeignKey("bar.id"))
+    bar_id: Mapped[int] = mapped_column(ForeignKey("bars.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
 
     bar = relationship("BarModel", back_populates="reviews")
+    user = relationship("UserModel", back_populates="reviews_bar")

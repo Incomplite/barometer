@@ -5,7 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.dependencies import DatabaseSessionDI
 from src.entities.cocktail.exceptions import CocktailNotFoundError
-from src.entities.cocktail.models import CocktailModel
+from src.entities.cocktail.models import (
+    CocktailGalleryModel,
+    CocktailModel,
+    ReviewCocktailModel,
+)
 
 
 class CocktailRepository:
@@ -58,3 +62,39 @@ class CocktailRepository:
             return True
         except CocktailNotFoundError:
             return False
+
+    async def add_review(
+        self, cocktail_id: int, review_data: dict[str, Any]
+    ) -> ReviewCocktailModel:
+        cocktail = await self.get_cocktail_by_id(cocktail_id)
+        review = ReviewCocktailModel(**review_data, cocktail_id=cocktail_id)
+        self._session.add(review)
+        await self._session.commit()
+        await self._session.refresh(review)
+        return review
+
+    async def get_reviews(self, cocktail_id: int) -> Sequence[ReviewCocktailModel]:
+        query = select(ReviewCocktailModel).where(
+            ReviewCocktailModel.cocktail_id == cocktail_id
+        )
+        results = await self._session.scalars(query)
+        return results.all()
+
+    async def add_gallery_image(
+        self, cocktail_id: int, image_url: str
+    ) -> CocktailGalleryModel:
+        cocktail = await self.get_cocktail_by_id(cocktail_id)
+        gallery_image = CocktailGalleryModel(
+            image_url=image_url, cocktail_id=cocktail_id
+        )
+        self._session.add(gallery_image)
+        await self._session.commit()
+        await self._session.refresh(gallery_image)
+        return gallery_image
+
+    async def get_gallery(self, cocktail_id: int) -> Sequence[CocktailGalleryModel]:
+        query = select(CocktailGalleryModel).where(
+            CocktailGalleryModel.cocktail_id == cocktail_id
+        )
+        results = await self._session.scalars(query)
+        return results.all()

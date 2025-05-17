@@ -16,7 +16,7 @@ class CocktailModel(Base):
     rating: Mapped[float] = mapped_column(nullable=True)
     bar_id: Mapped[int] = mapped_column(ForeignKey("bars.id"))
 
-    gallery = relationship("CocktailGallery", back_populates="cocktail")
+    gallery = relationship("CocktailGalleryModel", back_populates="cocktail")
     reviews = relationship("ReviewCocktailModel", back_populates="cocktail")
     bar = relationship("BarModel", back_populates="cocktails")
 
@@ -38,5 +38,7 @@ class ReviewCocktailModel(Base):
     text: Mapped[str] = mapped_column(Text)
     rating: Mapped[float] = mapped_column(nullable=True)
     cocktail_id: Mapped[int] = mapped_column(ForeignKey("cocktails.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
 
     cocktail = relationship("CocktailModel", back_populates="reviews")
+    user = relationship("UserModel", back_populates="reviews_cocktail")
