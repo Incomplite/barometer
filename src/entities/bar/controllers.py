@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
 from src.auth.dependencies.auth_module import CurrentUserDI
@@ -8,8 +8,11 @@ from src.entities.bar.exceptions import (
     BarAlreadyExistsException,
     BarNotFoundError,
     BarNotFoundException,
+    UserAlreadyReviewedError,
+    UserAlreadyReviewedException,
 )
 from src.entities.bar.schemas import (
+    BarCocktailsResponseSchema,
     BarCreateSchema,
     BarGallerySchema,
     BarResponseSchema,
@@ -17,6 +20,7 @@ from src.entities.bar.schemas import (
     ReviewBarCreateSchema,
     ReviewBarResponseSchema,
 )
+from src.entities.tag.exceptions import TagNotFoundError, TagNotFoundException
 from src.entities.tag.schemas import TagResponseSchema
 
 bar_router = APIRouter(
@@ -55,6 +59,45 @@ async def get_bar_by_id(
         raise BarNotFoundException
 
 
+@bar_router.get(
+    "/{bar_id}/reviews/",
+    response_model=list[ReviewBarResponseSchema],
+)
+async def get_reviews(
+    bar_service: BarServiceDI,
+    bar_id: int,
+):
+    return await bar_service.get_reviews(
+        bar_id=bar_id,
+    )
+
+
+@bar_router.get(
+    "/{bar_id}/tags/",
+    response_model=list[TagResponseSchema],
+)
+async def get_tags(
+    bar_service: BarServiceDI,
+    bar_id: int,
+) -> list[TagResponseSchema]:
+    return await bar_service.get_tags(
+        bar_id=bar_id,
+    )
+
+
+@bar_router.get(
+    "/{bar_id}/cocktails/",
+    response_model=list[BarCocktailsResponseSchema],
+)
+async def get_cocktails(
+    bar_service: BarServiceDI,
+    bar_id: int,
+):
+    return await bar_service.get_cocktails(
+        bar_id=bar_id,
+    )
+
+
 # ======
 # POST/Create
 # ======
@@ -70,7 +113,9 @@ async def create_bar(
     bar: BarCreateSchema,
 ):
     try:
-        return await bar_service.create_bar(bar=bar)
+        return await bar_service.create_bar(
+            bar=bar,
+        )
     except BarAlreadyExistsError:
         raise BarAlreadyExistsException
 
@@ -99,6 +144,51 @@ async def add_to_favorites(
         raise BarNotFoundException
 
 
+@bar_router.post(
+    "/{bar_id}/reviews/",
+    response_model=ReviewBarResponseSchema,
+)
+async def add_review(
+    bar_service: BarServiceDI,
+    user: CurrentUserDI,
+    bar_id: int,
+    review_data: ReviewBarCreateSchema,
+):
+    try:
+        return await bar_service.add_review(
+            bar_id=bar_id,
+            review_data=review_data,
+            user_id=user.id,
+        )
+    except UserAlreadyReviewedError:
+        raise UserAlreadyReviewedException
+
+
+@bar_router.post(
+    "/{bar_id}/tags/{tag_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def add_tag(
+    bar_service: BarServiceDI,
+    bar_id: int,
+    tag_id: int,
+):
+    try:
+        await bar_service.add_tag(
+            bar_id=bar_id,
+            tag_id=tag_id,
+        )
+        return JSONResponse(
+            {
+                "message": "Tag successfully added",
+            }
+        )
+    except BarNotFoundError:
+        raise BarNotFoundException
+    except TagNotFoundError:
+        raise TagNotFoundException
+
+
 # ======
 # PUT/PATCH/Update
 # ======
@@ -111,12 +201,12 @@ async def add_to_favorites(
 async def update_bar(
     bar_service: BarServiceDI,
     bar_id: int,
-    bar: BarUpdateSchema,
+    bar_data: BarUpdateSchema,
 ):
     try:
         return await bar_service.update_bar(
             bar_id=bar_id,
-            bar_data=bar,
+            bar_data=bar_data,
         )
     except BarNotFoundError:
         raise BarNotFoundException
@@ -171,46 +261,34 @@ async def remove_from_favorites(
         raise BarNotFoundException
 
 
-# Reviews endpoints
-@bar_router.post(
-    "/{bar_id}/reviews",
-    response_model=ReviewBarResponseSchema,
+@bar_router.delete(
+    "/{bar_id}/tags/{tag_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
 )
-async def add_review(
+async def remove_tag(
     bar_service: BarServiceDI,
-    user: CurrentUserDI,
     bar_id: int,
-    review: ReviewBarCreateSchema,
-):
+    tag_id: int,
+) -> None:
     try:
-        return await bar_service.add_review(
+        await bar_service.remove_tag(
             bar_id=bar_id,
-            review_data=review.model_dump(),
-            user_id=user.id,
+            tag_id=tag_id,
         )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+        return JSONResponse(
+            {
+                "message": "Tag successfully removed",
+            }
         )
-
-
-@bar_router.get(
-    "/{bar_id}/reviews",
-    response_model=list[ReviewBarResponseSchema],
-)
-async def get_reviews(
-    bar_service: BarServiceDI,
-    bar_id: int,
-):
-    return await bar_service.get_reviews(
-        bar_id=bar_id,
-    )
+    except BarNotFoundError:
+        raise BarNotFoundException
+    except TagNotFoundError:
+        raise TagNotFoundException
 
 
 # Gallery endpoints
 @bar_router.post(
-    "/{bar_id}/gallery",
+    "/{bar_id}/gallery/",
     response_model=BarGallerySchema,
 )
 async def add_gallery_image(
@@ -225,7 +303,7 @@ async def add_gallery_image(
 
 
 @bar_router.get(
-    "/{bar_id}/gallery",
+    "/{bar_id}/gallery/",
     response_model=list[BarGallerySchema],
 )
 async def get_gallery(
@@ -233,49 +311,5 @@ async def get_gallery(
     bar_id: int,
 ):
     return await bar_service.get_gallery(
-        bar_id=bar_id,
-    )
-
-
-# Tags endpoints
-@bar_router.post(
-    "/{bar_id}/tags/{tag_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def add_tag(
-    bar_service: BarServiceDI,
-    bar_id: int,
-    tag_id: int,
-):
-    await bar_service.add_tag(
-        bar_id=bar_id,
-        tag_id=tag_id,
-    )
-
-
-@bar_router.delete(
-    "/{bar_id}/tags/{tag_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def remove_tag(
-    bar_service: BarServiceDI,
-    bar_id: int,
-    tag_id: int,
-) -> None:
-    await bar_service.remove_tag(
-        bar_id=bar_id,
-        tag_id=tag_id,
-    )
-
-
-@bar_router.get(
-    "/{bar_id}/tags",
-    response_model=list[TagResponseSchema],
-)
-async def get_tags(
-    bar_service: BarServiceDI,
-    bar_id: int,
-) -> list[TagResponseSchema]:
-    return await bar_service.get_tags(
         bar_id=bar_id,
     )

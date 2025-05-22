@@ -35,8 +35,8 @@ class ReviewCocktailModel(Base):
     __tablename__ = "review_cocktail"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    text: Mapped[str] = mapped_column(Text)
-    rating: Mapped[float] = mapped_column(nullable=True)
+    text: Mapped[str] = mapped_column(Text, nullable=True)
+    rating: Mapped[int] = mapped_column(nullable=False)
     cocktail_id: Mapped[int] = mapped_column(ForeignKey("cocktails.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
 

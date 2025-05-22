@@ -1,9 +1,13 @@
 from fastapi import APIRouter, status
+from fastapi.responses import JSONResponse
 
+from src.auth.dependencies.auth_module import CurrentUserDI
 from src.entities.cocktail.dependencies.services import CocktailServiceDI
 from src.entities.cocktail.exceptions import (
     CocktailNotFoundError,
     CocktailNotFoundException,
+    UserAlreadyReviewedError,
+    UserAlreadyReviewedException,
 )
 from src.entities.cocktail.schemas import (
     CocktailCreateSchema,
@@ -11,13 +15,17 @@ from src.entities.cocktail.schemas import (
     CocktailResponseSchema,
     CocktailUpdateSchema,
     ReviewCocktailCreateSchema,
-    ReviewCocktailSchema,
+    ReviewCocktailResponseSchema,
 )
 
 cocktail_router = APIRouter(
     prefix="/cocktails",
     tags=["Cocktails"],
 )
+
+# ======
+# GET/Read
+# ======
 
 
 @cocktail_router.get(
@@ -34,7 +42,7 @@ async def get_all_cocktails(
     "/{cocktail_id}",
     response_model=CocktailResponseSchema,
 )
-async def get_cocktail(
+async def get_cocktail_by_id(
     cocktail_service: CocktailServiceDI,
     cocktail_id: int,
 ):
@@ -44,6 +52,37 @@ async def get_cocktail(
         )
     except CocktailNotFoundError:
         raise CocktailNotFoundException
+
+
+@cocktail_router.get(
+    "/{cocktail_id}/reviews",
+    response_model=list[ReviewCocktailResponseSchema],
+)
+async def get_reviews(
+    cocktail_service: CocktailServiceDI,
+    cocktail_id: int,
+):
+    return await cocktail_service.get_reviews(
+        cocktail_id=cocktail_id,
+    )
+
+
+@cocktail_router.get(
+    "/{cocktail_id}/gallery",
+    response_model=list[CocktailGallerySchema],
+)
+async def get_gallery(
+    cocktail_service: CocktailServiceDI,
+    cocktail_id: int,
+):
+    return await cocktail_service.get_gallery(
+        cocktail_id=cocktail_id,
+    )
+
+
+# ======
+# POST/Create
+# ======
 
 
 @cocktail_router.post(
@@ -59,67 +98,26 @@ async def create_cocktail(
     )
 
 
-@cocktail_router.put(
-    "/{cocktail_id}",
-    response_model=CocktailResponseSchema,
-)
-async def update_cocktail(
-    cocktail_service: CocktailServiceDI,
-    cocktail_id: int,
-    cocktail: CocktailUpdateSchema,
-):
-    try:
-        return await cocktail_service.update_cocktail(
-            cocktail_id=cocktail_id,
-            cocktail_data=cocktail,
-        )
-    except CocktailNotFoundError:
-        raise CocktailNotFoundException
-
-
-@cocktail_router.delete(
-    "/{cocktail_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def delete_cocktail(
-    cocktail_service: CocktailServiceDI,
-    cocktail_id: int,
-):
-    await cocktail_service.delete_cocktail(
-        cocktail_id=cocktail_id,
-    )
-
-
-# Reviews endpoints
 @cocktail_router.post(
-    "/{cocktail_id}/reviews",
-    response_model=ReviewCocktailSchema,
+    "/{cocktail_id}/reviews/",
+    response_model=ReviewCocktailResponseSchema,
 )
 async def add_review(
     cocktail_service: CocktailServiceDI,
+    user: CurrentUserDI,
     cocktail_id: int,
-    review: ReviewCocktailCreateSchema,
+    review_data: ReviewCocktailCreateSchema,
 ):
-    return await cocktail_service.add_review(
-        cocktail_id=cocktail_id,
-        review_data=review.model_dump(),
-    )
+    try:
+        return await cocktail_service.add_review(
+            cocktail_id=cocktail_id,
+            review_data=review_data,
+            user_id=user.id,
+        )
+    except UserAlreadyReviewedError:
+        raise UserAlreadyReviewedException
 
 
-@cocktail_router.get(
-    "/{cocktail_id}/reviews",
-    response_model=list[ReviewCocktailSchema],
-)
-async def get_reviews(
-    cocktail_service: CocktailServiceDI,
-    cocktail_id: int,
-):
-    return await cocktail_service.get_reviews(
-        cocktail_id=cocktail_id,
-    )
-
-
-# Gallery endpoints
 @cocktail_router.post(
     "/{cocktail_id}/gallery",
     response_model=CocktailGallerySchema,
@@ -135,12 +133,50 @@ async def add_gallery_image(
     )
 
 
-@cocktail_router.get(
-    "/{cocktail_id}/gallery",
-    response_model=list[CocktailGallerySchema],
+# ======
+# PUT/PATCH/Update
+# ======
+
+
+@cocktail_router.patch(
+    "/{cocktail_id}",
+    response_model=CocktailResponseSchema,
 )
-async def get_gallery(
+async def update_cocktail(
+    cocktail_service: CocktailServiceDI,
+    cocktail_id: int,
+    cocktail_data: CocktailUpdateSchema,
+):
+    try:
+        return await cocktail_service.update_cocktail(
+            cocktail_id=cocktail_id,
+            cocktail_data=cocktail_data,
+        )
+    except CocktailNotFoundError:
+        raise CocktailNotFoundException
+
+
+# ======
+# Delete
+# ======
+
+
+@cocktail_router.delete(
+    "/{cocktail_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_cocktail(
     cocktail_service: CocktailServiceDI,
     cocktail_id: int,
 ):
-    return await cocktail_service.get_gallery(cocktail_id=cocktail_id)
+    try:
+        await cocktail_service.delete_cocktail(
+            cocktail_id=cocktail_id,
+        )
+        return JSONResponse(
+            {
+                "message": "Cocktail successfully removed",
+            }
+        )
+    except CocktailNotFoundError:
+        raise CocktailNotFoundException

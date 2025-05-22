@@ -27,6 +27,13 @@ class TagRepository:
 
         return tag
 
+    async def get_tag_by_name(
+        self,
+        tag_name: str,
+    ) -> TagModel | None:
+        query = select(self.model).where(self.model.name == tag_name)
+        return await self._session.scalar(query)
+
     async def get_all_tags(self) -> Sequence[TagModel]:
         query = select(self.model)
         results = await self._session.scalars(query)
@@ -34,9 +41,9 @@ class TagRepository:
 
     async def create_tag(
         self,
-        tag: TagCreateSchema,
+        tag_data: TagCreateSchema,
     ) -> TagModel:
-        tag_model = self.model(**tag.model_dump())
+        tag_model = self.model(**tag_data.model_dump())
         self._session.add(tag_model)
         await self._session.commit()
         return tag_model

@@ -1,7 +1,8 @@
-from typing import Any, Sequence
+from typing import Sequence
 
 from src.core.dependencies import DatabaseSessionDI
 from src.entities.cocktail.dependencies.repositories import CocktailRepositoryDI
+from src.entities.cocktail.exceptions import UserAlreadyReviewedError
 from src.entities.cocktail.models import (
     CocktailGalleryModel,
     ReviewCocktailModel,
@@ -11,6 +12,8 @@ from src.entities.cocktail.schemas import (
     CocktailCreateSchema,
     CocktailResponseSchema,
     CocktailUpdateSchema,
+    ReviewCocktailCreateSchema,
+    ReviewCocktailResponseSchema,
 )
 
 
@@ -69,26 +72,63 @@ class CocktailService:
         return await self._cocktail_repository.delete_cocktail(cocktail_id)
 
     async def add_review(
-        self, cocktail_id: int, review_data: dict[str, Any]
+        self,
+        cocktail_id: int,
+        review_data: ReviewCocktailCreateSchema,
+        user_id: int,
     ) -> ReviewCocktailModel:
-        review = await self._repository.add_review(cocktail_id, review_data)
-        # Update cocktail rating
-        cocktail = await self._repository.get_cocktail_by_id(cocktail_id)
-        reviews = await self._repository.get_reviews(cocktail_id)
-        if reviews:
-            cocktail.rating = sum(r.rating for r in reviews) / len(reviews)
-            await self._repository.update_cocktail(
-                cocktail_id, {"rating": cocktail.rating}
-            )
-        return review
+        cocktail = await self._repository.get_cocktail_by_id(
+            cocktail_id=cocktail_id,
+        )
+        existing_review = next(
+            (review for review in cocktail.reviews if review.user_id == user_id),
+            None,
+        )
+        if existing_review:
+            raise UserAlreadyReviewedError
 
-    async def get_reviews(self, cocktail_id: int) -> Sequence[ReviewCocktailModel]:
-        return await self._repository.get_reviews(cocktail_id)
+        review_dict = review_data.model_dump()
+        review_dict["user_id"] = user_id
+
+        review = await self._repository.add_review(
+            cocktail_id=cocktail_id,
+            review_data=review_dict,
+        )
+
+        reviews = await self._repository.get_reviews(
+            cocktail_id=cocktail_id,
+        )
+        if reviews:
+            avg_rating = round(sum(r.rating for r in reviews) / len(reviews), 2)
+            await self._repository.update_cocktail(
+                cocktail_id=cocktail_id,
+                update_data={"rating": avg_rating},
+            )
+
+        return ReviewCocktailResponseSchema.model_validate(review)
+
+    async def get_reviews(
+        self,
+        cocktail_id: int,
+    ) -> Sequence[ReviewCocktailModel]:
+        return await self._repository.get_reviews(
+            cocktail_id=cocktail_id,
+        )
 
     async def add_gallery_image(
-        self, cocktail_id: int, image_url: str
+        self,
+        cocktail_id: int,
+        image_url: str,
     ) -> CocktailGalleryModel:
-        return await self._repository.add_gallery_image(cocktail_id, image_url)
+        return await self._repository.add_gallery_image(
+            cocktail_id=cocktail_id,
+            image_url=image_url,
+        )
 
-    async def get_gallery(self, cocktail_id: int) -> Sequence[CocktailGalleryModel]:
-        return await self._repository.get_gallery(cocktail_id)
+    async def get_gallery(
+        self,
+        cocktail_id: int,
+    ) -> Sequence[CocktailGalleryModel]:
+        return await self._repository.get_gallery(
+            cocktail_id=cocktail_id,
+        )

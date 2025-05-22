@@ -1,3 +1,7 @@
+from src.core.exceptions import (
+    UserAlreadyReviewedError,
+    UserAlreadyReviewedException,
+)
 from src.entities.bar.exceptions.domain import (
     BarAlreadyExistsError,
     BarNotFoundError,
@@ -12,4 +16,6 @@ __all__ = [
     "BarNotFoundError",
     "BarAlreadyExistsException",
     "BarNotFoundException",
+    "UserAlreadyReviewedError",
+    "UserAlreadyReviewedException",
 ]

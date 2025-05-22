@@ -1,7 +1,7 @@
-from pydantic import BaseModel
+from src.core.schemas.base import BaseSchema
 
 
-class TagBaseSchema(BaseModel):
+class TagBaseSchema(BaseSchema):
     name: str
 
 

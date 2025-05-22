@@ -2,6 +2,8 @@ from fastapi import APIRouter
 
 from src.entities.tag.dependencies.services import TagServiceDI
 from src.entities.tag.exceptions import (
+    TagAlreadyExistsError,
+    TagAlreadyExistsException,
     TagNotFoundError,
     TagNotFoundException,
 )
@@ -25,7 +27,12 @@ async def create_tag(
     service: TagServiceDI,
     tag_data: TagCreateSchema,
 ):
-    return await service.create_tag(tag_data)
+    try:
+        return await service.create_tag(
+            tag=tag_data,
+        )
+    except TagAlreadyExistsError:
+        raise TagAlreadyExistsException
 
 
 @tag_router.get(

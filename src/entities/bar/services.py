@@ -1,23 +1,28 @@
-from typing import Any, Sequence
+from typing import Sequence
 
 from src.entities.bar.dependencies.repositories import BarRepositoryDI
-from src.entities.bar.exceptions import BarAlreadyExistsError
-from src.entities.bar.models import BarGalleryModel, BarModel, ReviewBarModel
+from src.entities.bar.exceptions import BarAlreadyExistsError, UserAlreadyReviewedError
+from src.entities.bar.models import BarGalleryModel, ReviewBarModel
 from src.entities.bar.schemas import (
+    BarCocktailsResponseSchema,
     BarCreateSchema,
     BarResponseSchema,
     BarUpdateSchema,
+    ReviewBarCreateSchema,
     ReviewBarResponseSchema,
 )
-from src.entities.tag.models import TagModel
+from src.entities.tag.dependencies.repositories import TagRepositoryDI
+from src.entities.tag.schemas import TagResponseSchema
 
 
 class BarService:
     def __init__(
         self,
         bar_repository: BarRepositoryDI,
+        tag_repository: TagRepositoryDI,
     ) -> None:
         self._bar_repository = bar_repository
+        self._tag_repository = tag_repository
 
     async def get_all_bars(self) -> list[BarResponseSchema]:
         bars = await self._bar_repository.get_all_bars()
@@ -99,29 +104,36 @@ class BarService:
     async def add_review(
         self,
         bar_id: int,
-        review_data: dict[str, Any],
+        review_data: ReviewBarCreateSchema,
         user_id: int,
     ) -> ReviewBarResponseSchema:
-        # Check if user already reviewed this bar
-        bar = await self._bar_repository.get_bar_by_id(bar_id=bar_id)
+        bar = await self._bar_repository.get_bar_by_id(
+            bar_id=bar_id,
+        )
         existing_review = next(
             (review for review in bar.reviews if review.user_id == user_id),
             None,
         )
-        if existing_review is not None:
-            raise ValueError("User has already reviewed this bar")
+        if existing_review:
+            raise UserAlreadyReviewedError
+
+        review_dict = review_data.model_dump()
+        review_dict["user_id"] = user_id
 
         review = await self._bar_repository.add_review(
             bar_id=bar_id,
-            review_data={**review_data, "user_id": user_id},
+            review_data=review_dict,
         )
 
-        # Update bar rating
-        reviews = await self._bar_repository.get_reviews(bar_id=bar_id)
+        reviews = await self._bar_repository.get_reviews(
+            bar_id=bar_id,
+        )
         if reviews:
-            # Calculate average rating with 2 decimal places
             avg_rating = round(sum(r.rating for r in reviews) / len(reviews), 2)
-            await self._bar_repository.update_bar(bar_id, {"rating": avg_rating})
+            await self._bar_repository.update_bar(
+                bar_id=bar_id,
+                update_data={"rating": avg_rating},
+            )
 
         return ReviewBarResponseSchema.model_validate(review)
 
@@ -156,9 +168,12 @@ class BarService:
         bar_id: int,
         tag_id: int,
     ) -> None:
+        tag = await self._tag_repository.get_tag_by_id(
+            tag_id=tag_id,
+        )
         await self._bar_repository.add_tag(
             bar_id=bar_id,
-            tag_id=tag_id,
+            tag=tag,
         )
 
     async def remove_tag(
@@ -166,15 +181,33 @@ class BarService:
         bar_id: int,
         tag_id: int,
     ) -> None:
+        tag = await self._tag_repository.get_tag_by_id(
+            tag_id=tag_id,
+        )
         await self._bar_repository.remove_tag(
             bar_id=bar_id,
-            tag_id=tag_id,
+            tag=tag,
         )
 
     async def get_tags(
         self,
         bar_id: int,
-    ) -> Sequence[TagModel]:
-        return await self._bar_repository.get_tags(
+    ) -> Sequence[TagResponseSchema]:
+        tags = await self._bar_repository.get_tags(
             bar_id=bar_id,
         )
+
+        return [TagResponseSchema.model_validate(tag) for tag in tags]
+
+    async def get_cocktails(
+        self,
+        bar_id: int,
+    ) -> Sequence[BarCocktailsResponseSchema]:
+        cocktails = await self._bar_repository.get_cocktails(
+            bar_id=bar_id,
+        )
+
+        return [
+            BarCocktailsResponseSchema.model_validate(cocktail)
+            for cocktail in cocktails
+        ]

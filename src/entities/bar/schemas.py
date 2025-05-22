@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field
+
+from src.core.schemas.base import BaseSchema
 
 
-class BarBaseSchema(BaseModel):
+class BarBaseSchema(BaseSchema):
     name: str = Field(..., max_length=50)
     description: Optional[str] = None
     address: str = Field(..., max_length=200)
@@ -21,36 +23,25 @@ class BarUpdateSchema(BarBaseSchema):
     phone: Optional[str] = Field(None, max_length=20)
 
 
-class BarGallerySchema(BaseModel):
+class BarGallerySchema(BaseSchema):
     id: int
     image_url: str = Field(..., max_length=200)
     bar_id: int
 
-    class Config:
-        from_attributes = True
 
-
-class ReviewBarResponseSchema(BaseModel):
+class ReviewBarResponseSchema(BaseSchema):
     id: int
-    text: str
+    text: Optional[str] = None
     rating: Optional[float] = None
-    bar_id: int
+    # bar_id: int
+    user_id: int
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
 
-
-class ReviewBarCreateSchema(BaseModel):
-    text: str
-    rating: int = Field(..., ge=0, le=5, description="Rating from 0 to 5")
-
-    @field_validator("rating")
-    def validate_rating(cls, v: int) -> int:
-        if not 0 <= v <= 5:
-            raise ValueError("Rating must be between 0 and 5")
-        return v
+class ReviewBarCreateSchema(BaseSchema):
+    text: Optional[str] = None
+    rating: int = Field(..., ge=1, le=5, description="Rating from 1 to 5")
 
 
 class BarResponseSchema(BarBaseSchema):
@@ -60,8 +51,15 @@ class BarResponseSchema(BarBaseSchema):
     reviews: list[ReviewBarResponseSchema] = []
     tags: list["TagResponseSchema"] = []
 
-    class Config:
-        from_attributes = True
+
+class BarCocktailsResponseSchema(BaseSchema):
+    id: int
+    name: str = Field(..., max_length=100)
+    description: Optional[str] = None
+    ingredients: str
+    recipe: str
+    video_url: Optional[str] = Field(None, max_length=200)
+    rating: Optional[float] = None
 
 
 # Import here to avoid circular imports

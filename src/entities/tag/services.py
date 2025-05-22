@@ -1,4 +1,5 @@
 from src.entities.tag.dependencies.repositories import TagRepositoryDI
+from src.entities.tag.exceptions import TagAlreadyExistsError
 from src.entities.tag.schemas import (
     TagCreateSchema,
     TagResponseSchema,
@@ -28,7 +29,14 @@ class TagService:
         self,
         tag: TagCreateSchema,
     ) -> TagResponseSchema:
-        tag_model = await self._tag_repository.create_tag(tag=tag)
+        existing_bar = await self._tag_repository.get_tag_by_name(
+            tag_name=tag.name,
+        )
+        if existing_bar is not None:
+            raise TagAlreadyExistsError
+        tag_model = await self._tag_repository.create_tag(
+            tag_data=tag,
+        )
         return TagResponseSchema.model_validate(tag_model)
 
     async def update_tag(

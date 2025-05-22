@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from src.core.dependencies import DatabaseSessionDI
 from src.entities.bar.exceptions import BarNotFoundError
 from src.entities.bar.models import BarGalleryModel, BarModel, ReviewBarModel
+from src.entities.cocktail.models import CocktailModel
 from src.entities.tag.models import TagModel
 from src.entities.user.models import UserFavoriteBarAssociation, UserModel
 
@@ -29,6 +30,7 @@ class BarRepository:
                 selectinload(self.model.reviews),
                 selectinload(self.model.tags),
                 selectinload(self.model.favorited_by),
+                selectinload(self.model.cocktails),
             )
         )
         bar = await self._session.scalar(query)
@@ -51,6 +53,7 @@ class BarRepository:
             selectinload(self.model.reviews),
             selectinload(self.model.tags),
             selectinload(self.model.favorited_by),
+            selectinload(self.model.cocktails),
         )
         results = await self._session.scalars(query)
         return results.all()
@@ -147,9 +150,6 @@ class BarRepository:
         bar_id: int,
         review_data: dict[str, Any],
     ) -> ReviewBarModel:
-        bar = await self.get_bar_by_id(
-            bar_id=bar_id,
-        )
         review = ReviewBarModel(
             **review_data,
             bar_id=bar_id,
@@ -163,7 +163,9 @@ class BarRepository:
         self,
         bar_id: int,
     ) -> Sequence[ReviewBarModel]:
-        query = select(ReviewBarModel).where(ReviewBarModel.bar_id == bar_id)
+        query = select(ReviewBarModel).where(
+            ReviewBarModel.bar_id == bar_id,
+        )
         results = await self._session.scalars(query)
         return results.all()
 
@@ -195,12 +197,11 @@ class BarRepository:
     async def add_tag(
         self,
         bar_id: int,
-        tag_id: int,
+        tag: TagModel,
     ) -> None:
         bar = await self.get_bar_by_id(
             bar_id=bar_id,
         )
-        tag = await self._session.get(TagModel, tag_id)
         if tag not in bar.tags:
             bar.tags.append(tag)
             await self._session.commit()
@@ -208,12 +209,11 @@ class BarRepository:
     async def remove_tag(
         self,
         bar_id: int,
-        tag_id: int,
+        tag: TagModel,
     ) -> None:
         bar = await self.get_bar_by_id(
             bar_id=bar_id,
         )
-        tag = await self._session.get(TagModel, tag_id)
         if tag in bar.tags:
             bar.tags.remove(tag)
             await self._session.commit()
@@ -226,3 +226,12 @@ class BarRepository:
             bar_id=bar_id,
         )
         return bar.tags
+
+    async def get_cocktails(
+        self,
+        bar_id: int,
+    ) -> Sequence[CocktailModel]:
+        bar = await self.get_bar_by_id(
+            bar_id=bar_id,
+        )
+        return bar.cocktails

@@ -1,3 +1,7 @@
+from src.core.exceptions import (
+    UserAlreadyReviewedError,
+    UserAlreadyReviewedException,
+)
 from src.entities.cocktail.exceptions.domain import (
     CocktailAlreadyExistsError,
     CocktailNotFoundError,
@@ -12,4 +16,6 @@ __all__ = [
     "CocktailNotFoundError",
     "CocktailAlreadyExistsException",
     "CocktailNotFoundException",
+    "UserAlreadyReviewedError",
+    "UserAlreadyReviewedException",
 ]

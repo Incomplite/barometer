@@ -7,3 +7,8 @@ class BaseException(HTTPException):
 
     def __init__(self):
         super().__init__(self.status_code, self.detail)
+
+
+class UserAlreadyReviewedException(BaseException):
+    status_code = status.HTTP_409_CONFLICT
+    detail = "User has already left a review"
